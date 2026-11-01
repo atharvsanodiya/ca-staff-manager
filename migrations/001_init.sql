@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'completed', 'overdue')),
   deadline TEXT,
   reminder_at TEXT,
+  is_open INTEGER NOT NULL DEFAULT 0,
   created_by INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),

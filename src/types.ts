@@ -35,6 +35,7 @@ export interface Task {
   status: 'pending' | 'in_progress' | 'completed' | 'overdue';
   deadline: string | null;
   reminder_at: string | null;
+  is_open?: number;
   created_by: number;
   created_at: string;
   updated_at: string;

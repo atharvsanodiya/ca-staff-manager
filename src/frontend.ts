@@ -207,7 +207,9 @@ async function loadTasks() {
 
 function applyLocalFilters() {
   let list = [...S.tasks];
-  if (S.activeTab !== 'all') {
+  if (S.activeTab === 'open') {
+    list = list.filter(t => t.is_open === 1 && (!t.assignees || t.assignees.length === 0));
+  } else if (S.activeTab !== 'all') {
     list = list.filter(t => (t.status || t.my_status) === S.activeTab);
   }
   if (S.searchQuery) {
@@ -474,12 +476,14 @@ function renderDashboardContent() {
   // Taste-skill Section 14: One container split by hairlines, label over value, no icons in circles!
   const kpis = isAdmin ? [
     { label: 'Total Engagements', val: s.total || 0, sub: 'All statutory assignments' },
+    { label: 'Open Pool', val: s.open_pool || 0, sub: 'Unassigned matters', warn: (s.open_pool > 0) },
     { label: 'Pending Start', val: s.pending || 0, sub: 'Awaiting allocation/docs' },
     { label: 'In Execution', val: s.in_progress || 0, sub: 'Reconciliation & scrutiny' },
     { label: 'Completed (Cycle)', val: s.completed || 0, sub: 'Returns filed & acknowledged' },
     { label: 'Immediate Attention', val: s.overdue || 0, sub: 'Due <= 48 hrs or overdue', warn: (s.overdue > 0) }
   ] : [
     { label: 'My Total Work', val: s.total || 0, sub: 'All assigned tasks' },
+    { label: 'Open Pool', val: s.open_pool || 0, sub: 'Available to claim' },
     { label: 'Pending Start', val: s.pending || 0, sub: 'Not yet initiated' },
     { label: 'In Progress', val: s.in_progress || 0, sub: 'Active work in flight' },
     { label: 'Completed', val: s.completed || 0, sub: 'Sign-off submitted' }
@@ -488,11 +492,11 @@ function renderDashboardContent() {
   let html = '<div class="space-y-6">';
 
   // Top KPI Ribbon
-  html += '<div class="grid grid-cols-2 md:grid-cols-4 ' + (isAdmin ? 'lg:grid-cols-5' : '') + ' bg-white border border-slate-200/80 rounded-xl overflow-hidden divide-y md:divide-y-0 md:divide-x divide-slate-100 shadow-2xs">';
+  html += '<div class="grid grid-cols-2 md:grid-cols-3 ' + (isAdmin ? 'lg:grid-cols-6' : 'lg:grid-cols-5') + ' bg-white border border-slate-200/80 rounded-xl overflow-hidden divide-y md:divide-y-0 md:divide-x divide-slate-100 shadow-2xs">';
   kpis.forEach(k => {
     html += '<div class="p-4 sm:p-5">' +
       '<div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 font-mono">' + k.label + '</div>' +
-      '<div class="mt-2 text-2xl font-bold tracking-tight ' + (k.warn ? 'text-rose-700' : 'text-slate-900') + ' tabular font-mono">' + k.val + '</div>' +
+      '<div class="mt-2 text-2xl font-bold tracking-tight ' + (k.warn ? 'text-amber-700' : 'text-slate-900') + ' tabular font-mono">' + k.val + '</div>' +
       '<div class="mt-1 text-[11px] text-slate-500 truncate">' + k.sub + '</div>' +
     '</div>';
   });
@@ -504,6 +508,7 @@ function renderDashboardContent() {
   
   const tabs = [
     { id: 'all', label: 'All Tasks' },
+    { id: 'open', label: 'Open Pool' + (s.open_pool > 0 ? ' (' + s.open_pool + ')' : '') },
     { id: 'pending', label: 'Pending' },
     { id: 'in_progress', label: 'In Progress' },
     { id: 'completed', label: 'Completed' }
@@ -609,10 +614,10 @@ function renderTasksContent() {
     '<div class="flex flex-wrap items-center gap-2">' +
       // Status Tabs
       '<div class="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 text-xs">' +
-        ['all', 'pending', 'in_progress', 'completed'].map(tab => 
+        ['all', 'open', 'pending', 'in_progress', 'completed'].map(tab => 
           '<button onclick="setTab(\\'' + tab + '\\')" class="px-2.5 py-1 rounded-md capitalize font-medium transition ' +
           (S.activeTab === tab ? 'bg-white text-slate-900 font-semibold shadow-2xs' : 'text-slate-500 hover:text-slate-800') + '">' +
-          (tab === 'all' ? 'All Engagements' : tab.replace('_', ' ')) +
+          (tab === 'all' ? 'All Engagements' : (tab === 'open' ? 'Open Pool' : tab.replace('_', ' '))) +
           '</button>'
         ).join('') +
       '</div>' +
@@ -714,13 +719,19 @@ function renderTaskTable(tasks) {
 
       // Assignees
       '<td class="py-3.5 px-4">' +
-        '<div class="flex items-center -space-x-1.5">' +
-          (assignees.length > 0 ? assignees.map(a => 
-            '<div class="w-6 h-6 rounded-full bg-slate-100 border border-white text-slate-700 flex items-center justify-center font-bold text-[10px] font-mono" title="' + escAttr(a.full_name) + ' (' + a.status + ')">' +
-              a.full_name.charAt(0) +
-            '</div>'
-          ).join('') : '<span class="text-slate-400 text-xs">Unassigned</span>') +
-        '</div>' +
+        (assignees.length > 0 ? (
+          '<div class="flex items-center -space-x-1.5">' +
+            assignees.map(a => 
+              '<div class="w-6 h-6 rounded-full bg-slate-100 border border-white text-slate-700 flex items-center justify-center font-bold text-[10px] font-mono" title="' + escAttr(a.full_name) + ' (' + a.status + ')">' +
+                a.full_name.charAt(0) +
+              '</div>'
+            ).join('') +
+          '</div>'
+        ) : (
+          t.is_open === 1 
+            ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-50 text-amber-800 border border-amber-200">Open Pool</span>'
+            : '<span class="text-slate-400 text-xs">Unassigned</span>'
+        )) +
       '</td>' +
     '</tr>';
   });
@@ -755,6 +766,7 @@ function renderTaskDetailDrawer() {
               '<span class="w-1.5 h-1.5 rounded-full ' + getStatusDot(t.status) + '"></span>' +
               t.status.replace('_', ' ') +
             '</span>' +
+            (t.is_open === 1 ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold font-mono border bg-amber-50 text-amber-800 border-amber-200">Open Pool</span>' : '') +
           '</div>' +
           '<h2 class="text-lg font-bold text-slate-900 tracking-tight leading-snug">' + escHtml(t.title) + '</h2>' +
           '<div class="text-xs text-slate-400 font-mono">Engagement Ref #' + t.id + ' • Initiated ' + fmtDate(t.created_at) + ' by ' + escHtml(t.creator_name) + '</div>' +
@@ -792,6 +804,24 @@ function renderTaskDetailDrawer() {
           '</div>' +
         '</div>' +
 
+        (t.is_open === 1 ? (
+          '<div class="p-4 rounded-xl bg-amber-50/70 border border-amber-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">' +
+            '<div>' +
+              '<div class="font-semibold text-amber-950 text-xs flex items-center gap-1.5">' +
+                '<span class="w-2 h-2 rounded-full bg-amber-500"></span>' +
+                'Open Engagement Pool' +
+              '</div>' +
+              '<div class="text-[11px] text-amber-900/80 mt-0.5">This client engagement is open for any associate to pick up.</div>' +
+            '</div>' +
+            (!assignees.some(a => a.user_id === S.user.id) ? (
+              '<button onclick="claimTask(' + t.id + ')" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition shadow-xs flex items-center justify-center gap-1.5 flex-shrink-0 cursor-pointer">' +
+                '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' +
+                'Pick Up Engagement' +
+              '</button>'
+            ) : '') +
+          '</div>'
+        ) : '') +
+
         // Assigned Staff Team & Independent Tracking
         '<div>' +
           '<div class="flex items-center justify-between mb-2.5">' +
@@ -801,7 +831,9 @@ function renderTaskDetailDrawer() {
           '<div class="space-y-2">';
 
   if (assignees.length === 0) {
-    html += '<p class="text-slate-400 italic p-3 bg-slate-50 rounded-lg border border-slate-200">No staff currently assigned to this engagement.</p>';
+    html += t.is_open === 1 
+      ? '<p class="text-amber-800/80 italic p-3 bg-amber-50/50 rounded-lg border border-amber-200/60">Currently available in the Open Pool. Associates can pick it up to commence work.</p>'
+      : '<p class="text-slate-400 italic p-3 bg-slate-50 rounded-lg border border-slate-200">No staff currently assigned to this engagement.</p>';
   } else {
     assignees.forEach(a => {
       const isMe = a.user_id === S.user.id;
@@ -1104,6 +1136,17 @@ function showTaskModal() {
         '</div>' +
       '</div>' +
       '<div>' +
+        '<div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">' +
+          '<label class="flex items-start gap-2.5 cursor-pointer">' +
+            '<input type="checkbox" id="task-is-open" class="mt-0.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">' +
+            '<div>' +
+              '<div class="text-xs font-semibold text-slate-900">Open Task (Pool)</div>' +
+              '<p class="text-[11px] text-slate-500 leading-normal mt-0.5">Setup as open so any associate can claim/pick it up. Assigning specific staff is optional.</p>' +
+            '</div>' +
+          '</label>' +
+        '</div>' +
+      '</div>' +
+      '<div>' +
         '<label class="block font-semibold uppercase tracking-wider text-[10px] text-slate-600 font-mono mb-1.5">Assign Associate Staff</label>' +
         '<div class="p-2 border border-slate-200 rounded-lg max-h-36 overflow-y-auto space-y-1 bg-slate-50/50">' +
           staffCheckboxes +
@@ -1121,6 +1164,7 @@ function showTaskModal() {
 async function submitCreateTask() {
   const checkboxes = document.querySelectorAll('input[name="assignees"]:checked');
   const ids = Array.from(checkboxes).map(cb => Number(cb.value));
+  const isOpen = document.getElementById('task-is-open') ? document.getElementById('task-is-open').checked : false;
 
   const body = {
     title: document.getElementById('task-title').value.trim(),
@@ -1130,6 +1174,7 @@ async function submitCreateTask() {
     deadline: document.getElementById('task-deadline').value || null,
     reminder_at: document.getElementById('task-reminder').value || null,
     assignee_ids: ids,
+    is_open: isOpen ? 1 : 0,
   };
 
   if (!body.title) {
@@ -1209,6 +1254,17 @@ function showEditTaskModal(id) {
         '</div>' +
       '</div>' +
       '<div>' +
+        '<div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">' +
+          '<label class="flex items-start gap-2.5 cursor-pointer">' +
+            '<input type="checkbox" id="edit-is-open" ' + (t.is_open === 1 ? 'checked' : '') + ' class="mt-0.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">' +
+            '<div>' +
+              '<div class="text-xs font-semibold text-slate-900">Open Task (Pool)</div>' +
+              '<p class="text-[11px] text-slate-500 leading-normal mt-0.5">Available for any associate to claim and execute.</p>' +
+            '</div>' +
+          '</label>' +
+        '</div>' +
+      '</div>' +
+      '<div>' +
         '<label class="block font-semibold uppercase tracking-wider text-[10px] text-slate-600 font-mono mb-1.5">Assignees</label>' +
         '<div class="p-2 border border-slate-200 rounded-lg max-h-36 overflow-y-auto space-y-1 bg-slate-50/50">' +
           staffCheckboxes +
@@ -1226,6 +1282,7 @@ function showEditTaskModal(id) {
 async function submitEditTask(id) {
   const checkboxes = document.querySelectorAll('input[name="edit-assignees"]:checked');
   const ids = Array.from(checkboxes).map(cb => Number(cb.value));
+  const isOpen = document.getElementById('edit-is-open') ? document.getElementById('edit-is-open').checked : false;
 
   const body = {
     title: document.getElementById('edit-title').value.trim(),
@@ -1235,6 +1292,7 @@ async function submitEditTask(id) {
     status: document.getElementById('edit-status').value,
     deadline: document.getElementById('edit-deadline').value || null,
     assignee_ids: ids,
+    is_open: isOpen ? 1 : 0,
   };
 
   const res = await api('/tasks/' + id, { method: 'PUT', body });
@@ -1433,6 +1491,20 @@ async function toggleStaffActive(id, newStatus) {
 }
 
 // ==================== ASSIGNMENTS & ATTACHMENTS ====================
+async function claimTask(taskId) {
+  if (!confirm('Pick up this client engagement and assign it to yourself?')) return;
+  const res = await api('/tasks/' + taskId + '/claim', { method: 'POST' });
+  if (res && res.message) {
+    toast(res.message);
+    await loadTaskDetail(taskId);
+    await loadTasks();
+    await loadDashboardStats();
+    render();
+  } else {
+    toast((res && res.error) || 'Failed to claim engagement', 'error');
+  }
+}
+
 async function updateStaffAssignment(taskId, userId, status) {
   const res = await api('/tasks/' + taskId + '/assignments/' + userId, { method: 'PUT', body: { status } });
   if (res && res.message) {

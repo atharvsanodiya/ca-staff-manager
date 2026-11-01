@@ -98,6 +98,7 @@ api.get('/dashboard/stats', authMiddleware, async (c) => {
     const completed = await c.env.DB.prepare("SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'").first();
     const overdue = await c.env.DB.prepare("SELECT COUNT(*) as count FROM tasks WHERE status = 'overdue' OR (deadline < datetime('now') AND status NOT IN ('completed'))").first();
     const staffCount = await c.env.DB.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'staff'").first();
+    const openPool = await c.env.DB.prepare("SELECT COUNT(*) as count FROM tasks WHERE is_open = 1 AND status != 'completed'").first();
 
     const recentTasks = await c.env.DB.prepare(`
       SELECT t.*, c.name as category_name, c.color as category_color
@@ -126,6 +127,7 @@ api.get('/dashboard/stats', authMiddleware, async (c) => {
       completed: (completed as any)?.count || 0,
       overdue: (overdue as any)?.count || 0,
       staff_count: (staffCount as any)?.count || 0,
+      open_pool: (openPool as any)?.count || 0,
       recent_tasks: recentTasks.results,
       tasks_by_category: tasksByCategory.results,
       tasks_by_staff: tasksByStaff.results,
@@ -135,6 +137,7 @@ api.get('/dashboard/stats', authMiddleware, async (c) => {
     const myPending = await c.env.DB.prepare("SELECT COUNT(*) as count FROM task_assignments WHERE user_id = ? AND status = 'pending'").bind(user.sub).first();
     const myInProgress = await c.env.DB.prepare("SELECT COUNT(*) as count FROM task_assignments WHERE user_id = ? AND status = 'in_progress'").bind(user.sub).first();
     const myCompleted = await c.env.DB.prepare("SELECT COUNT(*) as count FROM task_assignments WHERE user_id = ? AND status = 'completed'").bind(user.sub).first();
+    const openPool = await c.env.DB.prepare("SELECT COUNT(*) as count FROM tasks WHERE is_open = 1 AND status != 'completed'").first();
 
     const myRecentTasks = await c.env.DB.prepare(`
       SELECT t.*, c.name as category_name, c.color as category_color, ta.status as my_status
@@ -150,6 +153,7 @@ api.get('/dashboard/stats', authMiddleware, async (c) => {
       pending: (myPending as any)?.count || 0,
       in_progress: (myInProgress as any)?.count || 0,
       completed: (myCompleted as any)?.count || 0,
+      open_pool: (openPool as any)?.count || 0,
       recent_tasks: myRecentTasks.results,
     };
   }
@@ -188,16 +192,21 @@ api.get('/tasks', authMiddleware, async (c) => {
     query = `
       SELECT t.*, c.name as category_name, c.color as category_color,
         u.full_name as creator_name, ta.status as my_status, ta.notes as my_notes
-      FROM task_assignments ta
-      JOIN tasks t ON ta.task_id = t.id
+      FROM tasks t
       JOIN categories c ON t.category_id = c.id
       JOIN users u ON t.created_by = u.id
+      LEFT JOIN task_assignments ta ON t.id = ta.task_id AND ta.user_id = ?
     `;
-    conditions.push('ta.user_id = ?');
     params.push(user.sub);
+    conditions.push('(ta.user_id IS NOT NULL OR t.is_open = 1)');
   }
 
-  if (status) { conditions.push('t.status = ?'); params.push(status); }
+  if (status === 'open') {
+    conditions.push('t.is_open = 1');
+  } else if (status) {
+    conditions.push('t.status = ?');
+    params.push(status);
+  }
   if (categoryId) { conditions.push('t.category_id = ?'); params.push(Number(categoryId)); }
   if (priority) { conditions.push('t.priority = ?'); params.push(priority); }
   if (search) {
@@ -235,15 +244,17 @@ api.get('/tasks', authMiddleware, async (c) => {
 api.post('/tasks', authMiddleware, adminOnly, async (c) => {
   const user = c.get('user');
   const body = await c.req.json();
-  const { title, description, category_id, priority, deadline, reminder_at, assignee_ids } = body;
+  const { title, description, category_id, priority, deadline, reminder_at, assignee_ids, is_open } = body;
 
   if (!title || !category_id) {
     return c.json({ error: 'Title and category are required' }, 400);
   }
 
+  const isOpenVal = (is_open === 1 || is_open === true) ? 1 : 0;
+
   const result = await c.env.DB.prepare(
-    'INSERT INTO tasks (title, description, category_id, priority, deadline, reminder_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).bind(title, description || null, category_id, priority || 'medium', deadline || null, reminder_at || null, user.sub).run();
+    'INSERT INTO tasks (title, description, category_id, priority, deadline, reminder_at, created_by, is_open) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(title, description || null, category_id, priority || 'medium', deadline || null, reminder_at || null, user.sub, isOpenVal).run();
 
   const taskId = result.meta.last_row_id;
 
@@ -256,9 +267,10 @@ api.post('/tasks', authMiddleware, adminOnly, async (c) => {
     }
   }
 
-  await logActivity(c.env.DB, user.sub, 'created', 'task', taskId as number, `Created task: ${title}`);
+  const openNote = isOpenVal ? ' (Open Pool)' : '';
+  await logActivity(c.env.DB, user.sub, 'created', 'task', taskId as number, `Created engagement: ${title}${openNote}`);
 
-  return c.json({ id: taskId, message: 'Task created successfully' }, 201);
+  return c.json({ id: taskId, message: 'Engagement created successfully' }, 201);
 });
 
 api.get('/tasks/:id', authMiddleware, async (c) => {
@@ -308,12 +320,19 @@ api.put('/tasks/:id', authMiddleware, adminOnly, async (c) => {
   const user = c.get('user');
   const taskId = Number(c.req.param('id'));
   const body = await c.req.json();
-  const { title, description, category_id, priority, status, deadline, reminder_at, assignee_ids } = body;
+  const { title, description, category_id, priority, status, deadline, reminder_at, assignee_ids, is_open } = body;
+
+  const existingTask: any = await c.env.DB.prepare('SELECT * FROM tasks WHERE id = ?').bind(taskId).first();
+  if (!existingTask) {
+    return c.json({ error: 'Engagement not found' }, 404);
+  }
+
+  const isOpenVal = is_open !== undefined ? (is_open ? 1 : 0) : (existingTask.is_open || 0);
 
   await c.env.DB.prepare(`
     UPDATE tasks SET title = ?, description = ?, category_id = ?, priority = ?, status = ?,
-    deadline = ?, reminder_at = ?, updated_at = datetime('now') WHERE id = ?
-  `).bind(title, description || null, category_id, priority, status, deadline || null, reminder_at || null, taskId).run();
+    deadline = ?, reminder_at = ?, is_open = ?, updated_at = datetime('now') WHERE id = ?
+  `).bind(title, description || null, category_id, priority, status, deadline || null, reminder_at || null, isOpenVal, taskId).run();
 
   // Update assignees if provided
   if (assignee_ids !== undefined) {
@@ -325,9 +344,9 @@ api.put('/tasks/:id', authMiddleware, adminOnly, async (c) => {
     }
   }
 
-  await logActivity(c.env.DB, user.sub, 'updated', 'task', taskId, `Updated task: ${title}`);
+  await logActivity(c.env.DB, user.sub, 'updated', 'task', taskId, `Updated engagement: ${title}`);
 
-  return c.json({ message: 'Task updated' });
+  return c.json({ message: 'Engagement updated' });
 });
 
 api.delete('/tasks/:id', authMiddleware, adminOnly, async (c) => {
@@ -388,6 +407,52 @@ api.put('/tasks/:id/assignments/:userId', authMiddleware, async (c) => {
   await logActivity(c.env.DB, currentUser.sub, `assignment_${status}`, 'task', taskId, `${(assignee as any)?.full_name} marked as ${status}`);
 
   return c.json({ message: 'Assignment updated' });
+});
+
+// Claim an open task (associate picks up engagement)
+api.post('/tasks/:id/claim', authMiddleware, async (c) => {
+  const currentUser = c.get('user');
+  const taskId = Number(c.req.param('id'));
+
+  const task: any = await c.env.DB.prepare('SELECT * FROM tasks WHERE id = ?').bind(taskId).first();
+  if (!task) {
+    return c.json({ error: 'Engagement not found' }, 404);
+  }
+
+  // Check if current user is already assigned
+  const existing = await c.env.DB.prepare(
+    'SELECT * FROM task_assignments WHERE task_id = ? AND user_id = ?'
+  ).bind(taskId, currentUser.sub).first();
+
+  if (existing) {
+    return c.json({ message: 'Engagement is already assigned to you' });
+  }
+
+  // Check if task is still open for pickup
+  if (task.is_open === 0) {
+    return c.json({ error: 'This engagement has already been claimed by another associate' }, 400);
+  }
+
+  // Create assignment with in_progress status
+  await c.env.DB.prepare(
+    'INSERT INTO task_assignments (task_id, user_id, status, notes) VALUES (?, ?, ?, ?)'
+  ).bind(taskId, currentUser.sub, 'in_progress', 'Self-assigned from Open Pool').run();
+
+  // Mark task as not open and in_progress if it was pending
+  await c.env.DB.prepare(`
+    UPDATE tasks SET is_open = 0, status = CASE WHEN status = 'pending' THEN 'in_progress' ELSE status END, updated_at = datetime('now') WHERE id = ?
+  `).bind(taskId).run();
+
+  await logActivity(
+    c.env.DB,
+    currentUser.sub,
+    'claim_engagement',
+    'task',
+    taskId,
+    `${currentUser.full_name} picked up open engagement: ${task.title}`
+  );
+
+  return c.json({ message: 'Engagement successfully assigned to you' });
 });
 
 // ============ FILE ATTACHMENTS ============
