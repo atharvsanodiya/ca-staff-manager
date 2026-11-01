@@ -51,7 +51,37 @@ export function getHTML(): string {
 </style>
 </head>
 <body class="h-full text-slate-900 bg-slate-50 selection:bg-slate-200 selection:text-slate-900">
-<div id="app" class="h-full"></div>
+<div id="app" class="h-full">
+  <div class="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50">
+    <div class="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
+      <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-900 text-white font-bold text-lg tracking-wider mb-4 shadow-sm border border-slate-700 font-mono">
+        AM
+      </div>
+      <h1 class="text-xl font-bold tracking-tight text-slate-900">AKSHAY MALU &amp; ASSOCIATES</h1>
+      <p class="text-xs text-slate-500 mt-1 uppercase tracking-wider font-semibold">Chartered Accountants • Practice Compliance Suite</p>
+      <p class="text-xs text-slate-400 mt-0.5 font-mono">FRN: 024819C • CA Akshay Malu, Managing Partner</p>
+    </div>
+
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+      <div class="bg-white py-8 px-6 sm:px-8 border border-slate-200/80 rounded-xl shadow-xs">
+        <form onsubmit="login(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">Staff Identifier / Username</label>
+            <input id="login-user" type="text" required placeholder="admin or staff username" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white transition">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">Secure Password</label>
+            <input id="login-pass" type="password" required placeholder="••••••••" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white transition">
+          </div>
+          <div id="login-error" class="text-xs font-medium text-rose-600"></div>
+          <button type="submit" class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors shadow-xs cursor-pointer">
+            Authenticate &amp; Enter Office
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="toast-root" class="toast-container"></div>
 
 <script>
@@ -255,11 +285,17 @@ function nav(page) {
 // ==================== RENDERING CORE ====================
 function render() {
   const app = document.getElementById('app');
-  if (!S.token || !S.user) {
+  if (!app) return;
+  try {
+    if (!S.token || !S.user) {
+      app.innerHTML = renderLogin();
+      return;
+    }
+    app.innerHTML = renderAppShell();
+  } catch (err) {
+    console.error('Render error:', err);
     app.innerHTML = renderLogin();
-    return;
   }
-  app.innerHTML = renderAppShell();
 }
 
 // ==================== LOGIN VIEW ====================
@@ -1314,7 +1350,7 @@ async function submitCreateStaff() {
 async function deleteStaff(id) {
   const u = S.users.find(x => x.id === id);
   if (!u) return;
-  if (!confirm('Permanently delete staff account for "' + u.full_name + '" (@' + u.username + ')?\n\nAll assignment history for this user will be removed.')) return;
+  if (!confirm('Permanently delete staff account for ' + u.full_name + ' (@' + u.username + ')? All assignment history will be removed.')) return;
   const res = await api('/users/' + id, { method: 'DELETE' });
   if (res && res.message) {
     toast('Staff account removed');
@@ -1599,14 +1635,24 @@ document.addEventListener('keydown', e => {
 
 // ==================== APP INITIALIZATION ====================
 async function initApp() {
-  const isAuthed = await checkAuth();
-  if (isAuthed) {
-    await refreshAllData();
+  if (S.token) {
+    const isAuthed = await checkAuth();
+    if (isAuthed) {
+      await refreshAllData();
+      render();
+    } else {
+      render();
+    }
+  } else {
+    render();
   }
-  render();
 }
 
-initApp();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 </script>
 </body>
 </html>`;
