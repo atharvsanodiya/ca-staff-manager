@@ -9,7 +9,10 @@ INSERT OR IGNORE INTO categories (name, color) VALUES ('Other', '#8b5cf6');
 -- Seed admin user (password: admin123)
 -- Hash generated with SHA-256 + salt for demo purposes
 INSERT OR IGNORE INTO users (username, password_hash, full_name, email, role, phone)
-VALUES ('admin', 'ee28031b5c06e3be85778fd1ed2e80156a7a69d4bef2c7bf990dbba00aec3679', 'CA Admin', 'admin@castaffmanager.com', 'admin', '9999999999');
+VALUES ('akshay', 'ee28031b5c06e3be85778fd1ed2e80156a7a69d4bef2c7bf990dbba00aec3679', 'CA Akshay Malu', 'akshay@camalu.in', 'admin', '9820012345');
+
+INSERT OR IGNORE INTO users (username, password_hash, full_name, email, role, phone)
+VALUES ('admin', 'ee28031b5c06e3be85778fd1ed2e80156a7a69d4bef2c7bf990dbba00aec3679', 'CA Akshay Malu', 'admin@camalu.in', 'admin', '9820012345');
 
 -- Seed staff users (password: staff123)
 INSERT OR IGNORE INTO users (username, password_hash, full_name, email, role, phone)

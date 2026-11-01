@@ -4,7 +4,7 @@ export function getHTML(): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SANODIYA & ASSOCIATES | CA Practice Management</title>
+<title>AKSHAY MALU & ASSOCIATES | Chartered Accountants</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -263,12 +263,12 @@ function renderLogin() {
   return '<div class="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50">' +
     '<div class="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">' +
       // CA Firm Seal Monogram
-      '<div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-900 text-white font-bold text-lg tracking-wider mb-4 shadow-sm border border-slate-700">' +
-        'S&A' +
+      '<div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-900 text-white font-bold text-lg tracking-wider mb-4 shadow-sm border border-slate-700 font-mono">' +
+        'AM' +
       '</div>' +
-      '<h1 class="text-xl font-bold tracking-tight text-slate-900">SANODIYA & ASSOCIATES</h1>' +
+      '<h1 class="text-xl font-bold tracking-tight text-slate-900">AKSHAY MALU & ASSOCIATES</h1>' +
       '<p class="text-xs text-slate-500 mt-1 uppercase tracking-wider font-semibold">Chartered Accountants • Practice Compliance Suite</p>' +
-      '<p class="text-xs text-slate-400 mt-0.5 font-mono">FRN: 018429C • Established Practice</p>' +
+      '<p class="text-xs text-slate-400 mt-0.5 font-mono">FRN: 024819C • CA Akshay Malu, Managing Partner</p>' +
     '</div>' +
 
     '<div class="sm:mx-auto sm:w-full sm:max-w-md">' +
@@ -292,9 +292,9 @@ function renderLogin() {
         '<div class="mt-8 pt-6 border-t border-slate-100">' +
           '<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-3 text-center">One-Click Demonstration Logins</p>' +
           '<div class="grid grid-cols-2 gap-2">' +
-            '<button type="button" onclick="quickLogin(\\'admin\\',\\'admin123\\')" class="flex flex-col items-start p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition text-left">' +
-              '<span class="text-xs font-semibold text-slate-900">CA Admin (Partner)</span>' +
-              '<span class="text-[10px] text-slate-500 font-mono">admin / admin123</span>' +
+            '<button type="button" onclick="quickLogin(\\'akshay\\',\\'admin123\\')" class="flex flex-col items-start p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition text-left">' +
+              '<span class="text-xs font-semibold text-slate-900">CA Akshay Malu</span>' +
+              '<span class="text-[10px] text-slate-500 font-mono">Partner (akshay / admin123)</span>' +
             '</button>' +
             '<button type="button" onclick="quickLogin(\\'rahul\\',\\'staff123\\')" class="flex flex-col items-start p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition text-left">' +
               '<span class="text-xs font-semibold text-slate-900">Rahul Sharma</span>' +
@@ -335,10 +335,10 @@ function renderAppShell() {
     '<div class="p-5 border-b border-slate-100 flex items-center justify-between">' +
       '<div class="flex items-center gap-3">' +
         '<div class="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm tracking-wider font-mono shadow-xs">' +
-          'S&A' +
+          'AM' +
         '</div>' +
         '<div class="min-w-0">' +
-          '<h2 class="text-xs font-bold text-slate-900 tracking-tight leading-none uppercase truncate">Sanodiya & Associates</h2>' +
+          '<h2 class="text-xs font-bold text-slate-900 tracking-tight leading-none uppercase truncate">Akshay Malu & Co.</h2>' +
           '<p class="text-[10px] text-slate-400 font-medium tracking-normal mt-1 leading-none">Chartered Accountants</p>' +
         '</div>' +
       '</div>' +
