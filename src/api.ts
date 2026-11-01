@@ -172,6 +172,7 @@ api.get('/tasks', authMiddleware, async (c) => {
   const categoryId = c.req.query('category_id');
   const priority = c.req.query('priority');
   const assignedTo = c.req.query('assigned_to');
+  const search = c.req.query('search');
 
   let query = `
     SELECT t.*, c.name as category_name, c.color as category_color,
@@ -199,6 +200,10 @@ api.get('/tasks', authMiddleware, async (c) => {
   if (status) { conditions.push('t.status = ?'); params.push(status); }
   if (categoryId) { conditions.push('t.category_id = ?'); params.push(Number(categoryId)); }
   if (priority) { conditions.push('t.priority = ?'); params.push(priority); }
+  if (search) {
+    conditions.push('(t.title LIKE ? OR t.description LIKE ?)');
+    params.push(`%${search}%`, `%${search}%`);
+  }
   if (assignedTo && user.role === 'admin') {
     query += ' JOIN task_assignments ta2 ON t.id = ta2.task_id';
     conditions.push('ta2.user_id = ?');
