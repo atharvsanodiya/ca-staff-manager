@@ -97,12 +97,20 @@ async function api(path, opts = {}) {
 }
 
 // ==================== AUTHENTICATION ====================
-async function login(e, customUser, customPass) {
+async function login(e) {
   if (e) e.preventDefault();
-  const u = customUser || document.getElementById('login-user').value.trim();
-  const p = customPass || document.getElementById('login-pass').value;
+  const uInput = document.getElementById('login-user');
+  const pInput = document.getElementById('login-pass');
+  if (!uInput || !pInput) return;
+  const u = uInput.value.trim();
+  const p = pInput.value;
   const errEl = document.getElementById('login-error');
   if (errEl) errEl.textContent = '';
+  
+  if (!u || !p) {
+    if (errEl) errEl.textContent = 'Please enter both username and password.';
+    return;
+  }
   
   const res = await api('/auth/login', { method: 'POST', body: { username: u, password: p } });
   if (res && res.token) {
@@ -115,12 +123,8 @@ async function login(e, customUser, customPass) {
     render();
   } else {
     if (errEl) errEl.textContent = (res && res.error) || 'Invalid username or password.';
-    toast((res && res.error) || 'Login failed', 'error');
+    toast((res && res.error) || 'Authentication failed', 'error');
   }
-}
-
-function quickLogin(username, password) {
-  login(null, username, password);
 }
 
 function logout() {
@@ -287,29 +291,6 @@ function renderLogin() {
             'Authenticate & Enter Office' +
           '</button>' +
         '</form>' +
-
-        // Fast Test Credentials Switcher
-        '<div class="mt-8 pt-6 border-t border-slate-100">' +
-          '<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-3 text-center">One-Click Demonstration Logins</p>' +
-          '<div class="grid grid-cols-2 gap-2">' +
-            '<button type="button" onclick="quickLogin(\\'akshay\\',\\'admin123\\')" class="flex flex-col items-start p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition text-left">' +
-              '<span class="text-xs font-semibold text-slate-900">CA Akshay Malu</span>' +
-              '<span class="text-[10px] text-slate-500 font-mono">Partner (akshay / admin123)</span>' +
-            '</button>' +
-            '<button type="button" onclick="quickLogin(\\'rahul\\',\\'staff123\\')" class="flex flex-col items-start p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition text-left">' +
-              '<span class="text-xs font-semibold text-slate-900">Rahul Sharma</span>' +
-              '<span class="text-[10px] text-slate-500 font-mono">Tax Senior (staff123)</span>' +
-            '</button>' +
-            '<button type="button" onclick="quickLogin(\\'priya\\',\\'staff123\\')" class="flex flex-col items-start p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition text-left">' +
-              '<span class="text-xs font-semibold text-slate-900">Priya Patel</span>' +
-              '<span class="text-[10px] text-slate-500 font-mono">GST Lead (staff123)</span>' +
-            '</button>' +
-            '<button type="button" onclick="quickLogin(\\'amit\\',\\'staff123\\')" class="flex flex-col items-start p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition text-left">' +
-              '<span class="text-xs font-semibold text-slate-900">Amit Kumar</span>' +
-              '<span class="text-[10px] text-slate-500 font-mono">Audit Staff (staff123)</span>' +
-            '</button>' +
-          '</div>' +
-        '</div>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -898,74 +879,87 @@ function renderStaffContent() {
   const isAdmin = S.user.role === 'admin';
   let html = '<div class="space-y-6">';
 
-  html += '<div class="flex items-center justify-between">' +
+  html += '<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">' +
     '<div>' +
-      '<h3 class="text-sm font-semibold text-slate-900">Practice Staff & Articled Assistants</h3>' +
-      '<p class="text-xs text-slate-400">Team credentials, active engagements, and contact extensions</p>' +
+      '<h3 class="text-sm font-semibold text-slate-900">Staff & Associates Management</h3>' +
+      '<p class="text-xs text-slate-400">Create staff login credentials, assign practice areas, and monitor workload</p>' +
     '</div>' +
-    (isAdmin ? '<button onclick="showStaffModal()" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs transition flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>Add Associate</button>' : '') +
+    (isAdmin ? '<button onclick="showStaffModal()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs transition flex items-center justify-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>Create Staff Account</button>' : '') +
   '</div>';
 
-  html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
-  S.users.filter(u => u.role === 'staff').forEach(u => {
-    const activeTasks = u.active_tasks || 0;
-    const totalTasks = u.total_tasks || 0;
-    const completedTasks = Math.max(0, totalTasks - activeTasks);
-    const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 100;
-
-    html += '<div class="bg-white border border-slate-200/80 rounded-xl p-5 shadow-2xs space-y-4">' +
-      '<div class="flex items-start justify-between">' +
-        '<div class="flex items-center gap-3">' +
-          '<div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm font-mono border border-slate-200">' +
-            u.full_name.charAt(0) +
-          '</div>' +
-          '<div>' +
-            '<h4 class="font-semibold text-slate-900 leading-tight">' + escHtml(u.full_name) + '</h4>' +
-            '<div class="text-[11px] text-slate-400 font-mono">@' + u.username + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ' +
-          (u.is_active ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200') + '">' +
-          (u.is_active ? 'Active' : 'Inactive') +
-        '</span>' +
+  const staffMembers = S.users.filter(u => u.role === 'staff');
+  if (staffMembers.length === 0) {
+    html += '<div class="bg-white border border-slate-200/80 rounded-xl p-12 text-center shadow-2xs">' +
+      '<div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">' +
+        '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>' +
       '</div>' +
+      '<h4 class="text-sm font-semibold text-slate-900">No staff accounts registered yet</h4>' +
+      '<p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto mb-4">Create accounts for your articled assistants and associates. They can then log in using their credentials.</p>' +
+      (isAdmin ? '<button onclick="showStaffModal()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs transition">Create First Staff Account</button>' : '') +
+    '</div>';
+  } else {
+    html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+    staffMembers.forEach(u => {
+      const activeTasks = u.active_tasks || 0;
+      const totalTasks = u.total_tasks || 0;
+      const completedTasks = Math.max(0, totalTasks - activeTasks);
+      const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 100;
 
-      // Contact details
-      '<div class="space-y-1.5 text-xs text-slate-600 font-mono">' +
-        '<div class="flex items-center gap-2">' +
-          '<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>' +
-          '<a href="mailto:' + escAttr(u.email) + '" class="hover:underline truncate">' + escHtml(u.email) + '</a>' +
+      html += '<div class="bg-white border border-slate-200/80 rounded-xl p-5 shadow-2xs space-y-4">' +
+        '<div class="flex items-start justify-between">' +
+          '<div class="flex items-center gap-3">' +
+            '<div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm font-mono border border-slate-200">' +
+              u.full_name.charAt(0) +
+            '</div>' +
+            '<div>' +
+              '<h4 class="font-semibold text-slate-900 leading-tight">' + escHtml(u.full_name) + '</h4>' +
+              '<div class="text-[11px] text-slate-400 font-mono">@' + u.username + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ' +
+            (u.is_active ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200') + '">' +
+            (u.is_active ? 'Active' : 'Inactive') +
+          '</span>' +
         '</div>' +
-        (u.phone ? '<div class="flex items-center gap-2">' +
-          '<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>' +
-          '<span>' + escHtml(u.phone) + '</span>' +
-        '</div>' : '') +
-      '</div>' +
 
-      // Workload gauge
-      '<div class="pt-2 border-t border-slate-100">' +
-        '<div class="flex items-center justify-between text-[11px] mb-1.5">' +
-          '<span class="text-slate-500">Active Load: <strong class="text-slate-900 font-mono">' + activeTasks + '</strong> matters</span>' +
-          '<span class="text-slate-400 font-mono">' + completedTasks + '/' + totalTasks + ' done</span>' +
+        // Contact details
+        '<div class="space-y-1.5 text-xs text-slate-600 font-mono">' +
+          '<div class="flex items-center gap-2">' +
+            '<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>' +
+            '<a href="mailto:' + escAttr(u.email) + '" class="hover:underline truncate">' + escHtml(u.email) + '</a>' +
+          '</div>' +
+          (u.phone ? '<div class="flex items-center gap-2">' +
+            '<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>' +
+            '<span>' + escHtml(u.phone) + '</span>' +
+          '</div>' : '') +
         '</div>' +
-        '<div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">' +
-          '<div class="bg-slate-800 h-1.5 rounded-full" style="width: ' + pct + '%"></div>' +
-        '</div>' +
-      '</div>';
 
-    if (isAdmin) {
-      html += '<div class="pt-2 flex items-center gap-2">' +
-        '<button onclick="showEditStaffModal(' + u.id + ')" class="flex-1 py-1 px-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded text-xs font-medium transition text-center">Edit Associate</button>' +
-        '<button onclick="toggleStaffActive(' + u.id + ',' + (u.is_active ? 0 : 1) + ')" class="py-1 px-2.5 text-xs font-medium rounded border transition ' +
-          (u.is_active ? 'text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100' : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100') + '">' +
-          (u.is_active ? 'Deactivate' : 'Activate') +
-        '</button>' +
-      '</div>';
-    }
+        // Workload gauge
+        '<div class="pt-2 border-t border-slate-100">' +
+          '<div class="flex items-center justify-between text-[11px] mb-1.5">' +
+            '<span class="text-slate-500">Active Load: <strong class="text-slate-900 font-mono">' + activeTasks + '</strong> matters</span>' +
+            '<span class="text-slate-400 font-mono">' + completedTasks + '/' + totalTasks + ' done</span>' +
+          '</div>' +
+          '<div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">' +
+            '<div class="bg-slate-800 h-1.5 rounded-full" style="width: ' + pct + '%"></div>' +
+          '</div>' +
+        '</div>';
 
+      if (isAdmin) {
+        html += '<div class="pt-2 flex items-center gap-2">' +
+          '<button onclick="showEditStaffModal(' + u.id + ')" class="flex-1 py-1.5 px-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded text-xs font-medium transition text-center">Edit</button>' +
+          '<button onclick="toggleStaffActive(' + u.id + ',' + (u.is_active ? 0 : 1) + ')" class="py-1.5 px-3 text-xs font-medium rounded border transition ' +
+            (u.is_active ? 'text-slate-600 bg-white border-slate-200 hover:bg-slate-50' : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100') + '">' +
+            (u.is_active ? 'Deactivate' : 'Activate') +
+          '</button>' +
+          '<button onclick="deleteStaff(' + u.id + ')" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded border border-transparent hover:border-rose-200 transition" title="Delete Staff Account"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>' +
+        '</div>';
+      }
+
+      html += '</div>';
+    });
     html += '</div>';
-  });
-  html += '</div>';
+  }
 
   html += '</div>';
   return html;
@@ -1240,37 +1234,40 @@ function showStaffModal() {
   m.innerHTML = '<div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 slide-enter border border-slate-200">' +
     '<div class="flex justify-between items-start mb-5 pb-3 border-b border-slate-100">' +
       '<div>' +
-        '<h3 class="text-base font-bold text-slate-900">Add Staff Member</h3>' +
-        '<p class="text-xs text-slate-400">Register new associate or articled assistant</p>' +
+        '<h3 class="text-base font-bold text-slate-900">Create Staff Account</h3>' +
+        '<p class="text-xs text-slate-400">Set up login credentials for an associate or articled assistant</p>' +
       '</div>' +
       '<button onclick="closeModal(\\'modal-new-staff\\')" class="text-slate-400 hover:text-slate-600 p-1">&times;</button>' +
     '</div>' +
     '<div class="space-y-3.5 text-xs">' +
       '<div>' +
         '<label class="block font-semibold uppercase tracking-wider text-[10px] text-slate-600 font-mono mb-1">Full Name *</label>' +
-        '<input id="staff-name" required placeholder="e.g. Ananya Roy" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">' +
+        '<input id="staff-name" required placeholder="e.g. Pooja Mehta" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900">' +
       '</div>' +
       '<div class="grid grid-cols-2 gap-3">' +
         '<div>' +
-          '<label class="block font-semibold uppercase tracking-wider text-[10px] text-slate-600 font-mono mb-1">Username *</label>' +
-          '<input id="staff-username" required placeholder="ananya" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">' +
+          '<label class="block font-semibold uppercase tracking-wider text-[10px] text-slate-600 font-mono mb-1">Username (Login ID) *</label>' +
+          '<input id="staff-username" required placeholder="pooja" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900">' +
         '</div>' +
         '<div>' +
           '<label class="block font-semibold uppercase tracking-wider text-[10px] text-slate-600 font-mono mb-1">Password *</label>' +
-          '<input id="staff-password" type="password" required placeholder="••••••••" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">' +
+          '<input id="staff-password" type="password" required placeholder="••••••••" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900">' +
         '</div>' +
       '</div>' +
       '<div>' +
         '<label class="block font-semibold uppercase tracking-wider text-[10px] text-slate-600 font-mono mb-1">Email Address *</label>' +
-        '<input id="staff-email" type="email" required placeholder="ananya@castaffmanager.com" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">' +
+        '<input id="staff-email" type="email" required placeholder="pooja@camalu.in" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900">' +
       '</div>' +
       '<div>' +
-        '<label class="block font-semibold uppercase tracking-wider text-[10px] text-slate-600 font-mono mb-1">Phone / Extension</label>' +
-        '<input id="staff-phone" placeholder="9876543215" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">' +
+        '<label class="block font-semibold uppercase tracking-wider text-[10px] text-slate-600 font-mono mb-1">Phone / Mobile</label>' +
+        '<input id="staff-phone" placeholder="9876543210" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900">' +
+      '</div>' +
+      '<div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-500 font-sans leading-relaxed">' +
+        '<strong>Security note:</strong> The staff member will use the specified username and password to log in. No one can access the system without authorized credentials.' +
       '</div>' +
       '<div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">' +
         '<button type="button" onclick="closeModal(\\'modal-new-staff\\')" class="px-3.5 py-2 text-slate-600 hover:text-slate-800 rounded-lg">Cancel</button>' +
-        '<button type="button" onclick="submitCreateStaff()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg shadow-xs">Register Associate</button>' +
+        '<button type="button" onclick="submitCreateStaff()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg shadow-xs transition">Create Account</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -1278,28 +1275,53 @@ function showStaffModal() {
 }
 
 async function submitCreateStaff() {
+  const nameEl = document.getElementById('staff-name');
+  const userEl = document.getElementById('staff-username');
+  const passEl = document.getElementById('staff-password');
+  const emailEl = document.getElementById('staff-email');
+  const phoneEl = document.getElementById('staff-phone');
+
   const body = {
-    full_name: document.getElementById('staff-name').value.trim(),
-    username: document.getElementById('staff-username').value.trim(),
-    password: document.getElementById('staff-password').value,
-    email: document.getElementById('staff-email').value.trim(),
-    phone: document.getElementById('staff-phone').value.trim() || null,
+    full_name: nameEl ? nameEl.value.trim() : '',
+    username: userEl ? userEl.value.trim().toLowerCase() : '',
+    password: passEl ? passEl.value : '',
+    email: emailEl ? emailEl.value.trim() : '',
+    phone: phoneEl ? phoneEl.value.trim() : null,
     role: 'staff'
   };
 
   if (!body.full_name || !body.username || !body.password || !body.email) {
-    toast('Please fill all mandatory fields', 'error');
+    toast('Please fill all mandatory fields (Name, Username, Password, Email)', 'error');
+    return;
+  }
+
+  if (body.username.includes(' ')) {
+    toast('Username cannot contain spaces', 'error');
     return;
   }
 
   const res = await api('/users', { method: 'POST', body });
   if (res && res.id) {
-    toast('Associate registered');
+    toast('Staff account created for ' + body.full_name + ' (@' + body.username + ')');
     closeModal('modal-new-staff');
     await loadUsers();
     render();
   } else {
     toast((res && res.error) || 'Registration failed', 'error');
+  }
+}
+
+async function deleteStaff(id) {
+  const u = S.users.find(x => x.id === id);
+  if (!u) return;
+  if (!confirm('Permanently delete staff account for "' + u.full_name + '" (@' + u.username + ')?\n\nAll assignment history for this user will be removed.')) return;
+  const res = await api('/users/' + id, { method: 'DELETE' });
+  if (res && res.message) {
+    toast('Staff account removed');
+    await loadUsers();
+    render();
+  } else {
+    toast((res && res.error) || 'Failed to delete staff member', 'error');
   }
 }
 

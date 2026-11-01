@@ -534,6 +534,27 @@ api.put('/users/:id', authMiddleware, adminOnly, async (c) => {
   return c.json({ message: 'User updated' });
 });
 
+api.delete('/users/:id', authMiddleware, adminOnly, async (c) => {
+  const currentUser = c.get('user');
+  const userId = Number(c.req.param('id'));
+
+  if (userId === currentUser.sub) {
+    return c.json({ error: 'Cannot delete your own admin account' }, 400);
+  }
+
+  const targetUser = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+  if (!targetUser) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  await c.env.DB.prepare('DELETE FROM task_assignments WHERE user_id = ?').bind(userId).run();
+  await c.env.DB.prepare('DELETE FROM activity_log WHERE user_id = ?').bind(userId).run();
+  await c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+  await logActivity(c.env.DB, currentUser.sub, 'deleted', 'user', userId, `Deleted staff account: ${(targetUser as any).full_name}`);
+
+  return c.json({ message: 'Staff account removed' });
+});
+
 // ============ ACTIVITY LOG ============
 
 api.get('/activity', authMiddleware, async (c) => {
