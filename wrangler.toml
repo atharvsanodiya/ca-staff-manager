@@ -1,0 +1,17 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "ca-staff-manager"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ca-staff-db"
+database_id = "28e1a5a5-1b66-40bb-910c-401d8f07f93b"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "ca-staff-files"
+
+[vars]
+JWT_SECRET = "ca-staff-mgr-jwt-secret-change-in-prod-2024"
